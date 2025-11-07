@@ -19,46 +19,64 @@ from langchain_core.tools import tool
 # --- 1. Initialize Console ---
 console = Console()
 
-# --- 2. Load Configuration Files ---
+# --- 2. Load Configuration Files (NEW: Environment-Aware) ---
+
+# --- Load Local config.yaml (if it exists) for local development ---
+LOCAL_CONFIG = {}
 try:
     with open("config.yaml", "r") as f:
-        config = yaml.safe_load(f)
+        LOCAL_CONFIG = yaml.safe_load(f)
+        console.log("[dim]Loaded local `config.yaml` file.[/dim]")
 except FileNotFoundError:
-    console.log("[bold red]FATAL: `config.yaml` not found.[/bold red]")
-    console.log("Please copy `config.example.yaml` to `config.yaml` and add your API keys.")
-    exit(1)
+    console.log("[dim]No local `config.yaml` found. Assuming deployment and using Streamlit Secrets.[/dim]")
+    # This is normal and expected when deployed
+    pass
 except Exception as e:
-    console.log(f"[bold red]FATAL: Error reading `config.yaml`: {e}[/bold red]")
-    exit(1)
+    console.log(f"[yellow]Warning: Could not read `config.yaml`: {e}[/yellow]")
 
-PROMPTS_FILE = config.get("PROMPTS_FILE", "prompts.yaml")
+# --- Load Prompts File (Must exist in the repo) ---
+PROMPTS_FILE = LOCAL_CONFIG.get("PROMPTS_FILE", "prompts.yaml")
 try:
     with open(PROMPTS_FILE, "r") as f:
         prompts = yaml.safe_load(f)
 except FileNotFoundError:
     console.log(f"[bold red]FATAL: Prompts file `{PROMPTS_FILE}` not found.[/bold red]")
+    st.error(f"FATAL: Prompts file `{PROMPTS_FILE}` not found. Please make sure it's in your GitHub repo.")
     exit(1)
 except Exception as e:
     console.log(f"[bold red]FATAL: Error reading `{PROMPTS_FILE}`: {e}[/bold red]")
+    st.error(f"FATAL: Error reading `{PROMPTS_FILE}`: {e}")
     exit(1)
 
-# --- 3. Getters for Configs and Prompts ---
+
+# --- 3. Getters for Configs and Prompts (NEW: Environment-Aware) ---
+
 def get_config(key: str, default: Any = None) -> Any:
-    """Safely get a value from the config."""
-    value = config.get(key, default)
+    """
+    Safely gets a config value.
+    Priority is:
+    1. Streamlit Secrets (for cloud deployment)
+    2. Local config.yaml (for local development)
+    3. Default value
+    """
+    
+    # 1. Try Streamlit Secrets first (for deployment)
+    # This checks if st.secrets exists AND the key is in it
+    if hasattr(st, 'secrets') and key in st.secrets:
+        return st.secrets[key]
+    
+    # 2. Fallback to local config.yaml (for local dev)
+    value = LOCAL_CONFIG.get(key, default)
     
     # Special case for DATA_DIR
     if key == "DATA_DIR":
-        real_path = config.get("REAL_CORPUS_DIR", "./510k_corpus")
-        mock_path = config.get("MOCK_FILE_DIR", "./mock_510k_files")
+        real_path = get_config("REAL_CORPUS_DIR", "./510k_corpus") # Use get_config to check secrets
+        mock_path = get_config("MOCK_FILE_DIR", "./mock_510k_files") # Use get_config to check secrets
         if os.path.exists(real_path):
             return real_path
         else:
             return mock_path
             
-    if value is None and default is None:
-        # Don't exit here, as some keys are optional now
-        pass
     return value
 
 
@@ -67,6 +85,7 @@ def get_prompt(key: str) -> str:
     prompt = prompts.get(key)
     if not prompt:
         console.log(f"[bold red]FATAL: Prompt key `{key}` not found in `{PROMPTS_FILE}`.[/bold red]")
+        st.error(f"FATAL: Prompt key `{key}` not found in `{PROMPTS_FILE}`.")
         exit(1)
     return prompt
 
@@ -154,22 +173,37 @@ def get_db_connection(read_only: bool = False) -> duckdb.DuckDBPyConnection:
     except Exception as e:
         console.log(f"[bold red]FATAL: Could not connect to DuckDB at `{get_config('DB_FILE')}`.[/bold red]")
         console.log(f"Error: {e}")
+        st.error(f"FATAL: Could not connect to DuckDB at `{get_config('DB_FILE')}`: {e}")
         exit(1)
 
 @st.cache_resource
 def get_qdrant_client() -> qdrant_client.QdrantClient:
-    """Initialaizes the Qdrant client."""
+    """Initializes the Qdrant client."""
+    
+    # --- NEW CLOUD LOGIC ---
+    cloud_url = get_config("QDRANT_CLOUD_URL")
+    cloud_key = get_config("QDRANT_CLOUD_KEY")
+    
     try:
-        client = qdrant_client.QdrantClient(path=get_config("QDRANT_PATH"))
-        # Test connection by trying to get collection (it's okay if it fails, just tests path)
-        try:
-            client.get_collection(collection_name=get_config("QDRANT_COLLECTION"))
-        except Exception:
-            pass # Collection might not exist yet, that's fine
+        if cloud_url and cloud_key and "YOUR_" not in cloud_url:
+            console.log("[dim]Connecting to Qdrant Cloud...[/dim]")
+            client = qdrant_client.QdrantClient(
+                url=cloud_url, 
+                api_key=cloud_key,
+            )
+        else:
+            # Fallback to local
+            console.log("[dim]Connecting to Qdrant Local...[/dim]")
+            client = qdrant_client.QdrantClient(path=get_config("QDRANT_PATH"))
+        
+        # Test connection
+        client.get_collection(collection_name=get_config("QDRANT_COLLECTION"))
         return client
+    
     except Exception as e:
-        console.log(f"[bold red]FATAL: Could not connect to Qdrant at `{get_config('QDRANT_PATH')}`.[/bold red]")
+        console.log(f"[bold red]FATAL: Could not connect to Qdrant.[/bold red]")
         console.log(f"Error: {e}")
+        st.error(f"FATAL: Could not connect to Qdrant: {e}")
         exit(1)
 
 console.log("[dim]Services initialized.[/dim]")
