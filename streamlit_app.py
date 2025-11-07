@@ -543,7 +543,8 @@ if "user" not in st.session_state:
 
 # User is not logged in, show login/register page
 if st.session_state.user is None:
-    st.image(LOGO_URL, width=300)
+    if os.path.exists(LOGO_PATH):
+        st.image(LOGO_PATH, width=300)
     st.title("Welcome to the FormlyAI Agent Demo")
     
     login_tab, register_tab = st.tabs(["Login", "Register"])
@@ -568,15 +569,19 @@ if st.session_state.user is None:
 
 # --- 2. Main Application (If Logged In) ---
 else:
-    # Get user's name from their metadata
+    # --- !! THE FIX IS HERE !! ---
+    # Moved this line to the top of the 'else' block
     user_name = st.session_state.user.user_metadata.get("full_name", "User")
     
     with st.sidebar:
-        st.image(LOGO_URL)
+        if os.path.exists(LOGO_PATH):
+            st.image(LOGO_PATH) 
         st.title(f"Welcome, {user_name}!")
         if st.button("Logout"):
             sign_out_user()
-            st.session_state.user = None
+            # Clear all session state on logout
+            for key in st.session_state.keys():
+                del st.session_state[key]
             st.rerun()
         
         st.markdown("---")
@@ -724,5 +729,7 @@ else:
             run_retrieval_mode_ui()
     elif st.session_state.user:
         # User is logged in, but hasn't loaded a workspace
-        st.title(f"Welcome, {name}!")
+        # !! THE FIX IS HERE !!
+        # Now 'user_name' is defined in this scope
+        st.title(f"Welcome, {user_name}!")
         st.info("Please configure your API keys and workspace in the sidebar, then click 'Load Workspace' to begin.")
