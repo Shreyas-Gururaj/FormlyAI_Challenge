@@ -1,0 +1,13 @@
+# .gitignore
+
+# Keep these!
+venv/
+*.pyc
+__pycache__/
+*.DS_Store
+510k_corpus/
+mock_510k_files/
+
+# We are committing our databases for the demo
+# *.db
+# qdrant_db/

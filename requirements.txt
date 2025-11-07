@@ -1,0 +1,46 @@
+# --- Core Multi-Agent Framework ---
+langgraph==0.2.39
+langchain==0.2.17
+langchain-core==0.2.43
+langchain-google-genai==1.0.5   
+google-generativeai==0.5.4     # must stay <0.6 for google-genai adapter
+
+# --- Vector DB ---
+qdrant-client==1.10.1
+
+# --- Embedding Models (HF) ---
+langchain-huggingface==0.0.3   
+sentence-transformers==3.0.1
+transformers==4.43.2
+torch==2.2.2
+
+# --- Structured DB ---
+duckdb==1.1.0
+
+# --- Utilities ---
+langchain-text-splitters==0.2.2
+rich==13.8.0
+tqdm==4.66.5
+
+# --- Cohere Reranker ---
+langchain-cohere==0.1.8
+cohere==5.5.8
+
+# --- Corpus Downloader ---
+requests==2.32.3
+
+# --- Config & Web Search ---
+pyyaml==6.0.1
+langchain-community==0.2.18
+tavily-python==0.3.3
+
+# --- Web App ---
+streamlit==1.37.0
+
+# --- !! NEW EXTERNAL TOOL !! ---
+pyowm==3.3.0
+
+# --- !! NEW AUTH DEPENDENCIES !! ---
+streamlit-authenticator==0.4.1 # For user login
+supabase==2.5.0                # For Supabase DB client
+cryptography==42.0.8           # For encrypting API keys

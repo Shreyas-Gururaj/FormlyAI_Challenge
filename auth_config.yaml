@@ -1,0 +1,8 @@
+cookie:
+  expiry_days: 30
+  key: some_random_key_v1
+  name: formlyai_auth_cookie
+credentials:
+  usernames: {}
+preauthorized:
+  emails: []
