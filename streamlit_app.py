@@ -57,7 +57,7 @@ st.set_page_config(
 
 # --- !! THE FIX IS HERE !! ---
 # Changed from a placeholder URL to a local file path for your SVG
-LOGO_PATH = "assets/logo.svg"
+LOGO_PATH = "./assets/logo.svg"
 
 # --- Pydantic Schemas (for RAG tool) ---
 class QueryPlan(BaseModel):
