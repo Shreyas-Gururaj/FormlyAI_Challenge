@@ -3,6 +3,7 @@ import json
 import uuid
 import time
 import re
+import os # <-- Added for os.path.exists()
 from typing import List, Dict, Any, TypedDict, Optional
 
 # --- Import all our service *factories* from utils ---
@@ -49,13 +50,14 @@ from langchain_core.tools import tool
 # --- Page Configuration ---
 st.set_page_config(
     page_title="FormlyAI 510(k) Agent",
-    page_icon="🤖",
+    page_icon="🤖", # You could use your logo here too, if it's a URL
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- (MOCKED) Company Logo ---
-LOGO_URL = "https://placehold.co/300x100/000000/FFFFFF?text=FormlyAI&font=inter"
+# --- !! THE FIX IS HERE !! ---
+# Changed from a placeholder URL to a local file path for your SVG
+LOGO_PATH = "assets/logo.svg"
 
 # --- Pydantic Schemas (for RAG tool) ---
 class QueryPlan(BaseModel):
@@ -543,8 +545,13 @@ if "user" not in st.session_state:
 
 # User is not logged in, show login/register page
 if st.session_state.user is None:
+    # --- !! THE FIX IS HERE !! ---
+    # Use LOGO_PATH and check if it exists
     if os.path.exists(LOGO_PATH):
         st.image(LOGO_PATH, width=300)
+    else:
+        st.image(LOGO_URL, width=300) # Fallback to placeholder
+        
     st.title("Welcome to the FormlyAI Agent Demo")
     
     login_tab, register_tab = st.tabs(["Login", "Register"])
@@ -569,13 +576,16 @@ if st.session_state.user is None:
 
 # --- 2. Main Application (If Logged In) ---
 else:
-    # --- !! THE FIX IS HERE !! ---
-    # Moved this line to the top of the 'else' block
     user_name = st.session_state.user.user_metadata.get("full_name", "User")
     
     with st.sidebar:
+        # --- !! THE FIX IS HERE !! ---
+        # Use LOGO_PATH and check if it exists
         if os.path.exists(LOGO_PATH):
             st.image(LOGO_PATH) 
+        else:
+            st.image(LOGO_URL) # Fallback to placeholder
+
         st.title(f"Welcome, {user_name}!")
         if st.button("Logout"):
             sign_out_user()
@@ -633,7 +643,7 @@ else:
             # --- Model Selection ---
             st.session_state.selected_model = st.selectbox(
                 "Select Language Model",
-                ["gemini-pro", "gemini-1.5-flash"]
+                ["gemini-pro", "gemini-1.5-flash", "gemini-2.5-pro"] # Added your models
             )
 
             # --- Tool Selection (MCP Servers) ---
@@ -729,7 +739,5 @@ else:
             run_retrieval_mode_ui()
     elif st.session_state.user:
         # User is logged in, but hasn't loaded a workspace
-        # !! THE FIX IS HERE !!
-        # Now 'user_name' is defined in this scope
         st.title(f"Welcome, {user_name}!")
         st.info("Please configure your API keys and workspace in the sidebar, then click 'Load Workspace' to begin.")
