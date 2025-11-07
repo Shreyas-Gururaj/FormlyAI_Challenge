@@ -643,7 +643,7 @@ else:
             # --- Model Selection ---
             st.session_state.selected_model = st.selectbox(
                 "Select Language Model",
-                ["gemini-pro", "gemini-1.5-flash", "gemini-2.5-pro"] # Added your models
+                ["gemini-pro", "gemini-2.5-flash", "gemini-2.5-pro"] # Added your models
             )
 
             # --- Tool Selection (MCP Servers) ---
