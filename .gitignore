@@ -8,6 +8,7 @@ __pycache__/
 510k_corpus/
 mock_510k_files/
 api_keys.yaml
+sampled_corpus/
 
 # We are committing our databases for the demo
 # *.db
