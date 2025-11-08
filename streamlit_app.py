@@ -94,9 +94,11 @@ class SimilarityJustification(BaseModel):
 # --- Initialize Session State ---
 # Keep session keys minimal and deterministic
 _initial_keys = {
-    "workspace_loaded": False,
+    # "workspace_loaded": False, # REMOVED
     "agent_executor": None,
-    "selected_mode": "Chatbot (Agentic)",
+    "selected_mode": "Chatbot (Agentic)", # DEFAULT
+    "selected_model": "gemini-2.5-flash", # NEW DEFAULT
+    "selected_tools": ["local_510k_search", "internet_search", "get_weather"], # NEW DEFAULT
     "justification_agent": None,
     "selected_session_id": None,
     "chat_history": [],
@@ -733,6 +735,7 @@ def main():
                     }
                     save_user_api_keys(st.session_state.user.id, keys_to_save)
                     st.session_state.api_keys = keys_to_save
+                    st.rerun() # Rerun to load workspace with new keys
 
             st.markdown("---")
 
@@ -755,74 +758,74 @@ def main():
                 st.session_state.selected_mode = st.selectbox(
                     "Select Mode",
                     ["Chatbot (Agentic)", "Retrieval (Find Similar)"],
+                    index=["Chatbot (Agentic)", "Retrieval (Find Similar)"].index(st.session_state.selected_mode)
                 )
 
                 # --- Model Selection ---
                 st.session_state.selected_model = st.selectbox(
                     "Select Language Model",
                     ["gemini-2.5-flash", "gemini-2.5-pro"],
+                    index=["gemini-2.5-flash", "gemini-2.5-pro"].index(st.session_state.selected_model)
                 )
 
                 # --- Tool Selection (MCP Servers) ---
                 st.session_state.selected_tools = st.multiselect(
                     "Select Tools (for Chatbot Mode)",
                     ["local_510k_search", "internet_search", "get_weather"],
-                    default=["local_510k_search", "internet_search", "get_weather"],
+                    default=st.session_state.selected_tools,
                 )
 
-                if st.button("Load Workspace"):
-                    with st.spinner("Initializing services..."):
-                        try:
-                            # Initialize services using the user's saved keys
-                            keys = st.session_state.api_keys
+                # --- REMOVED: Load Workspace Button ---
+                # Services are now loaded automatically if keys are valid.
+                # Caching prevents re-initialization on every single rerun.
+                with st.spinner("Initializing services..."):
+                    try:
+                        # Initialize services using the user's saved keys
+                        keys = st.session_state.api_keys
 
-                            # Cached initializers - these will not re-create clients on reruns
-                            st.session_state.llm = init_llm(st.session_state.selected_model, keys["google"])
-                            st.session_state.embeddings = init_embeddings()
-                            st.session_state.reranker = init_reranker(keys["cohere"])
-                            st.session_state.internet_search = init_internet_search(keys["tavily"])
+                        # Cached initializers - these will not re-create clients on reruns
+                        # unless the inputs (e.g., selected_model) change.
+                        st.session_state.llm = init_llm(st.session_state.selected_model, keys["google"])
+                        st.session_state.embeddings = init_embeddings()
+                        st.session_state.reranker = init_reranker(keys["cohere"])
+                        st.session_state.internet_search = init_internet_search(keys["tavily"])
 
-                            # DB / Vector clients
-                            st.session_state.db_conn = init_db_connection(read_only=True)
-                            st.session_state.qdrant_client = init_qdrant_client()
+                        # DB / Vector clients
+                        st.session_state.db_conn = init_db_connection(read_only=True)
+                        st.session_state.qdrant_client = init_qdrant_client()
 
-                            # Build the agent if necessary
-                            if st.session_state.selected_mode == "Chatbot (Agentic)":
-                                build_dynamic_agent(st.session_state.selected_tools)
+                        # Build the agent if necessary
+                        if st.session_state.selected_mode == "Chatbot (Agentic)":
+                            build_dynamic_agent(st.session_state.selected_tools)
+                        
+                        # REMOVED: st.session_state.workspace_loaded = True
+                        # REMOVED: st.success(...)
+                        # REMOVED: st.rerun()
 
-                            st.session_state.workspace_loaded = True
-                            st.success("Workspace loaded successfully.")
-                            # schedule a safe rerun in the next main loop instead of rerunning now
-                            # st.session_state["rerun_pending"] = True
-                            st.rerun()
-                            return
-
-                        except Exception as e:
-                            st.error(f"Failed to initialize services: {e}")
-                            st.exception(e)
+                    except Exception as e:
+                        st.error(f"Failed to initialize services: {e}")
+                        st.exception(e)
 
             # --- Chat History (Request #1) ---
-            if st.session_state.workspace_loaded and st.session_state.selected_mode == "Chatbot (Agentic)":
+            # CHANGED: Gated by keys_valid instead of workspace_loaded
+            if keys_valid and st.session_state.selected_mode == "Chatbot (Agentic)":
                 st.markdown("---")
                 st.header("Chat History")
 
                 session_list = get_session_list(st.session_state.user.id)
 
                 # --- !! NEW: Handle Initial State Gracefully !! ---
-                # If the user has no sessions, create a new one immediately.
+                # CHANGED: Always default to a new chat on first load, per user request.
                 if not st.session_state.selected_session_id:
-                    if session_list:
-                        # Load the most recent session
-                        st.session_state.selected_session_id = session_list[0]["session_id"]
-                    else:
-                        # No history, create a brand new session ID
-                        st.session_state.selected_session_id = f"session_{uuid.uuid4()}"
-                        st.session_state.chat_history = []
+                    # ALWAYS create a new session ID on first load for this login
+                    st.session_state.selected_session_id = f"session_{uuid.uuid4()}"
+                    st.session_state.chat_history = []
 
                 if st.button("New Chat ➕", use_container_width=True):
                     new_session_id = f"session_{uuid.uuid4()}"
                     st.session_state.selected_session_id = new_session_id
                     st.session_state.chat_history = []
+                    st.rerun() # Added rerun to refresh main panel
 
                 # --- Display chat session buttons ---
                 session_titles = {s["session_id"]: s.get("title", "New Chat") for s in session_list}
@@ -865,15 +868,18 @@ def main():
                     )
 
         # --- 3. Main App Interface (If Workspace is Loaded) ---
-        if st.session_state.workspace_loaded:
+        # CHANGED: Gated by keys_valid instead of workspace_loaded
+        if keys_valid:
             if st.session_state.selected_mode == "Chatbot (Agentic)":
                 run_chatbot_mode_ui()
             else:
                 run_retrieval_mode_ui()
-        elif st.session_state.user:
+        # CHANGED: Gated by "not keys_valid"
+        elif st.session_state.user and not keys_valid:
             # User is logged in, but hasn't loaded a workspace
             st.title(f"Welcome, {user_name}!")
-            st.info("Please configure your API keys and workspace in the sidebar, then click 'Load Workspace' to begin.")
+            # CHANGED: Updated text to remove "Load Workspace"
+            st.info("Please configure your API keys in the sidebar to begin.")
 
 
 if __name__ == "__main__":
