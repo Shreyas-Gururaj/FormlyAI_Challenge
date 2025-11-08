@@ -668,8 +668,7 @@ def main():
                     if user:
                         st.session_state.user = user
                         # Schedule a safe rerun for next loop instead of rerunning immediately
-                        st.success("Successfully logged in!")
-                        st.experimental_rerun()
+                        st.rerun()
                         # st.session_state["rerun_pending"] = True
 
         with register_tab:
