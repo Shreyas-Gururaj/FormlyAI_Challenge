@@ -3,7 +3,7 @@ import json
 import uuid
 import time
 import re
-import os # <-- Added for os.path.exists()
+import os 
 from typing import List, Dict, Any, TypedDict, Optional
 
 # --- Import all our service *factories* from utils ---
@@ -55,9 +55,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- !! THE FIX IS HERE !! ---
-# Changed from a placeholder URL to a local file path for your SVG
-LOGO_PATH = "./assets/logo.svg"
+# --- Logo Path ---
+LOGO_PATH = "assets/logo.svg"
+LOGO_URL_FALLBACK = "https://placehold.co/300x100/000000/FFFFFF?text=FormlyAI&font=inter"
+
 
 # --- Pydantic Schemas (for RAG tool) ---
 class QueryPlan(BaseModel):
@@ -342,7 +343,7 @@ def run_retrieval_mode_ui():
         db_conn = st.session_state.db_conn
         
         try:
-            # 1. Get the Query Document
+            # --- 1. Get the Query Document ---
             with st.spinner(f"Fetching query document: {k_number}..."):
                 query_doc = fetch_one_dict(
                     db_conn,
@@ -354,7 +355,7 @@ def run_retrieval_mode_ui():
                 st.error(f"Error: K-Number {k_number} not found in our database.")
                 return
 
-            # 2. Get the Seed Vector
+            # --- 2. Get the Seed Vector ---
             with st.spinner(f"Searching for seed vector..."):
                 query_vector_data, _ = qdrant_client.scroll(
                     collection_name=get_config("QDRANT_COLLECTION"),
@@ -376,7 +377,7 @@ def run_retrieval_mode_ui():
             query_vector = query_vector_data[0].vector
             st.success(f"Found seed vector for {k_number}. Finding similar devices...")
 
-            # 3. Use Qdrant's `recommend` feature
+            # --- 3. Use Qdrant's `recommend` feature
             with st.spinner("Finding recommendations..."):
                 recommendations = qdrant_client.recommend(
                     collection_name=get_config("QDRANT_COLLECTION"),
@@ -389,7 +390,7 @@ def run_retrieval_mode_ui():
                     )
                 )
 
-            # 4. De-duplicate the results
+            # --- 4. De-duplicate the results ---
             top_unique_hits = []
             seen_k_numbers = set()
             for hit in recommendations:
@@ -400,7 +401,15 @@ def run_retrieval_mode_ui():
                 if len(top_unique_hits) >= get_config("RERANKED_TOP_N"):
                     break
             
-            st.subheader(f"Top {len(top_unique_hits)} Similar Devices")
+            # --- !! NEW: Display Query Document First !! ---
+            st.markdown("---")
+            st.subheader(f"Query Document: {query_doc['k_number']}")
+            st.markdown(f"**{query_doc['device_name']}** by *{query_doc['manufacturer']}*")
+            with st.container(height=200): # Show a snippet
+                 st.markdown(query_doc.get('section_indications_for_use', query_doc.get('raw_text_summary', '')))
+            st.markdown("---")
+            
+            st.subheader(f"Found {len(top_unique_hits)} Similar Devices")
 
             # 5. Display in Split-Screen
             QUERY_HIGHLIGHT_COLOR = "rgba(59, 130, 246, 0.2)"  # Blue-200
@@ -545,12 +554,10 @@ if "user" not in st.session_state:
 
 # User is not logged in, show login/register page
 if st.session_state.user is None:
-    # --- !! THE FIX IS HERE !! ---
-    # Use LOGO_PATH and check if it exists
     if os.path.exists(LOGO_PATH):
         st.image(LOGO_PATH, width=300)
     else:
-        st.image(LOGO_URL, width=300) # Fallback to placeholder
+        st.image(LOGO_URL_FALLBACK, width=300) # Fallback to placeholder
         
     st.title("Welcome to the FormlyAI Agent Demo")
     
@@ -579,12 +586,10 @@ else:
     user_name = st.session_state.user.user_metadata.get("full_name", "User")
     
     with st.sidebar:
-        # --- !! THE FIX IS HERE !! ---
-        # Use LOGO_PATH and check if it exists
         if os.path.exists(LOGO_PATH):
             st.image(LOGO_PATH) 
         else:
-            st.image(LOGO_URL) # Fallback to placeholder
+            st.image(LOGO_URL_FALLBACK) # Fallback to placeholder
 
         st.title(f"Welcome, {user_name}!")
         if st.button("Logout"):
@@ -643,7 +648,7 @@ else:
             # --- Model Selection ---
             st.session_state.selected_model = st.selectbox(
                 "Select Language Model",
-                ["gemini-2.5-flash", "gemini-2.5-pro"] # Added your models
+                ["gemini-2.5-flash", "gemini-2.5-pro"]
             )
 
             # --- Tool Selection (MCP Servers) ---
@@ -678,7 +683,7 @@ else:
                         st.error(f"Failed to initialize services: {e}")
                         st.exception(e)
 
-        # --- Chat History (Request #2) ---
+        # --- Chat History (Request #1) ---
         if st.session_state.workspace_loaded and st.session_state.selected_mode == "Chatbot (Agentic)":
             st.markdown("---")
             st.header("Chat History")
@@ -686,49 +691,39 @@ else:
             session_list = get_session_list(st.session_state.user.id)
             
             if st.button("New Chat ➕", use_container_width=True):
-                st.session_state.selected_session_id = f"session_{uuid.uuid4()}"
+                new_session_id = f"session_{uuid.uuid4()}"
+                st.session_state.selected_session_id = new_session_id
                 st.session_state.chat_history = []
-                st.rerun()
-                
-            session_titles = {s_id: s_id.replace("session_", "Chat ")[:12] for s_id in session_list}
+                # No need to rerun, we just switch to this new (empty) session
+            
+            # --- !! NEW: Chat History UI !! ---
             
             # Load default session if none selected
             if not st.session_state.selected_session_id and session_list:
-                st.session_state.selected_session_id = session_list[0]
+                st.session_state.selected_session_id = session_list[0]['session_id']
             elif not st.session_state.selected_session_id and not session_list:
                  st.session_state.selected_session_id = f"session_{uuid.uuid4()}"
                  st.session_state.chat_history = []
-
-            
-            # Use a radio button to select the session
-            # Check if the current session_id is valid, if not, default to the first or new
-            try:
-                current_index = session_list.index(st.session_state.selected_session_id)
-            except ValueError:
-                if session_list:
-                    st.session_state.selected_session_id = session_list[0]
-                    current_index = 0
-                else:
-                    current_index = 0 # Will be empty list
-            
-            selected = st.radio(
-                "Select a conversation:",
-                session_list,
-                format_func=lambda s_id: session_titles.get(s_id, "New Chat"),
-                key="session_radio",
-                label_visibility="collapsed",
-                index=current_index
-            )
-            
-            # Load the selected chat history
-            if selected and st.session_state.selected_session_id != selected:
-                st.session_state.selected_session_id = selected
-                st.session_state.chat_history = get_chat_history(st.session_state.user.id, selected)
-                st.rerun()
             
             # Load history for the first time if it's empty
-            if selected and not st.session_state.chat_history:
-                 st.session_state.chat_history = get_chat_history(st.session_state.user.id, selected)
+            if st.session_state.selected_session_id and not st.session_state.chat_history:
+                 st.session_state.chat_history = get_chat_history(
+                     st.session_state.user.id, 
+                     st.session_state.selected_session_id
+                 )
+
+            # Display chat session buttons
+            for session in session_list:
+                session_id = session['session_id']
+                # Use a default title if the first message was empty/None
+                title = session.get('title', 'Chat') or "Chat"
+                
+                # Use a button for each session
+                if st.button(title, key=session_id, use_container_width=True):
+                    # On click, load this session
+                    st.session_state.selected_session_id = session_id
+                    st.session_state.chat_history = get_chat_history(st.session_state.user.id, session_id)
+                    st.rerun() # Rerun to update the main chat panel
 
 
     # --- 3. Main App Interface (If Workspace is Loaded) ---

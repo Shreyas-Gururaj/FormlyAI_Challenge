@@ -1,9 +1,7 @@
 import streamlit as st
-# !! THE FIX IS HERE !!
 # We import 'gotrue' as its own package, not from 'supabase'
 from supabase import create_client, Client
 import gotrue
-# ---
 from cryptography.fernet import Fernet
 from typing import Dict, Optional, List, Tuple
 import os
@@ -39,7 +37,7 @@ def sign_up_user(email, password, full_name) -> Optional[gotrue.types.User]:
             "password": password,
             "options": { "data": { "full_name": full_name } }
         })
-        st.success("Registration successful! Please check your email to verify.")
+        st.success("Registration successful! You can now log in.")
         return user_response.user
     except Exception as e:
         st.error(f"Error registering: {e}")
@@ -127,35 +125,19 @@ def save_user_api_keys(user_id: str, keys_dict: Dict[str, str]):
 
 # --- Chat History Management (in Supabase) ---
 
-def get_session_list(user_id: str) -> List[str]:
+def get_session_list(user_id: str) -> List[Dict[str, str]]:
     """
     Fetches the list of unique, most recent session_ids for a user.
+    Now returns a list of dictionaries: [{'session_id': '...', 'title': '...'}]
     """
     try:
-        # We need to create a SQL function in Supabase for this to work
-        # Go to Supabase > SQL Editor > New Query
-        # Run:
-        # CREATE OR REPLACE FUNCTION get_user_sessions(p_user_id UUID)
-        # RETURNS TABLE(session_id TEXT, last_message_time TIMESTAMPTZ) AS $$
-        # BEGIN
-        #     RETURN QUERY
-        #     SELECT
-        #         s.session_id,
-        #         MAX(s.created_at) AS last_message_time
-        #     FROM
-        #         chat_history s
-        #     WHERE
-        #         s.user_id = p_user_id
-        #     GROUP BY
-        #         s.session_id
-        #     ORDER BY
-        #         last_message_time DESC;
-        # END;
-        # $$ LANGUAGE plpgsql;
-
+        # This calls the SQL function you created in the Supabase dashboard
+        # (See README.md for the SQL)
         response = supabase.rpc('get_user_sessions', {"p_user_id": user_id}).execute()
         if response.data:
-            return [row['session_id'] for row in response.data]
+            # response.data is already a list of dicts, e.g.,
+            # [{'session_id': '...', 'last_message_time': '...', 'title': '...'}]
+            return response.data
         return []
     except Exception as e:
         console.log(f"[red]Error fetching session list for user {user_id}: {e}[/red]")
