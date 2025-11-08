@@ -657,7 +657,7 @@ def main():
                     user = sign_in_user(email, password)
                     if user:
                         st.session_state.user = user
-                        st.experimental_rerun()
+                        st.rerun()
 
         with register_tab:
             with st.form("Register"):
@@ -684,7 +684,7 @@ def main():
                 finally:
                     # Clear *all* session state and rerun to return to login
                     st.session_state.clear()
-                    st.experimental_rerun()
+                    st.rerun()
 
             st.markdown("---")
 
@@ -776,7 +776,7 @@ def main():
                             st.session_state.workspace_loaded = True
                             st.success("Workspace loaded successfully.")
                             time.sleep(0.5)
-                            st.experimental_rerun()
+                            st.rerun()
 
                         except Exception as e:
                             st.error(f"Failed to initialize services: {e}")
@@ -834,7 +834,7 @@ def main():
                     if selected_session_id_from_radio != st.session_state.selected_session_id:
                         st.session_state.selected_session_id = selected_session_id_from_radio
                         st.session_state.chat_history = get_chat_history(st.session_state.user.id, selected_session_id_from_radio)
-                        st.experimental_rerun()  # Rerun to update the main chat panel
+                        st.rerun()  # Rerun to update the main chat panel
 
                 # Final check to load history if it hasn't been loaded yet (e.g., first log-in)
                 if not st.session_state.chat_history and st.session_state.selected_session_id:
