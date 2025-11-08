@@ -699,7 +699,8 @@ def main():
                     # reinitialise minimal keys to avoid KeyError on next run
                     for k, v in _initial_keys.items():
                         st.session_state[k] = v
-                    st.session_state["rerun_pending"] = True
+                    # st.session_state["rerun_pending"] = True
+                    st.rerun()
                     return  # Avoid continuing the render after scheduling rerun
 
             st.markdown("---")
@@ -792,7 +793,8 @@ def main():
                             st.session_state.workspace_loaded = True
                             st.success("Workspace loaded successfully.")
                             # schedule a safe rerun in the next main loop instead of rerunning now
-                            st.session_state["rerun_pending"] = True
+                            # st.session_state["rerun_pending"] = True
+                            st.rerun()
                             return
 
                         except Exception as e:
@@ -852,7 +854,8 @@ def main():
                         st.session_state.selected_session_id = selected_session_id_from_radio
                         st.session_state.chat_history = get_chat_history(st.session_state.user.id, selected_session_id_from_radio)
                         # schedule safe rerun to update the main chat panel
-                        st.session_state["rerun_pending"] = True
+                        # st.session_state["rerun_pending"] = True
+                        st.rerun()
                         return
 
                 # Final check to load history if it hasn't been loaded yet (e.g., first log-in)
