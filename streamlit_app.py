@@ -50,7 +50,7 @@ from langchain_core.tools import tool
 # --- Page Configuration ---
 st.set_page_config(
     page_title="FormlyAI 510(k) Agent",
-    page_icon="🤖", # You could use your logo here too, if it's a URL
+    page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -583,8 +583,6 @@ if st.session_state.user is None:
 
 # --- 2. Main Application (If Logged In) ---
 else:
-    # --- !! THE FIX IS HERE !! ---
-    # Moved this line to the top of the 'else' block
     user_name = st.session_state.user.user_metadata.get("full_name", "User")
     
     with st.sidebar:
@@ -692,40 +690,78 @@ else:
             
             session_list = get_session_list(st.session_state.user.id)
             
+            # --- !! NEW: Handle Initial State Gracefully !! ---
+            # If the user has no sessions, create a new one immediately.
+            if not st.session_state.selected_session_id:
+                if session_list:
+                    # Load the most recent session
+                    st.session_state.selected_session_id = session_list[0]['session_id']
+                else:
+                    # No history, create a brand new session ID
+                    st.session_state.selected_session_id = f"session_{uuid.uuid4()}"
+                    st.session_state.chat_history = []
+                    # Do not call st.rerun here, just start the new session
+            # --- !! END NEW STATE HANDLER !! ---
+
+
             if st.button("New Chat ➕", use_container_width=True):
                 new_session_id = f"session_{uuid.uuid4()}"
                 st.session_state.selected_session_id = new_session_id
                 st.session_state.chat_history = []
-                # No need to rerun, we just switch to this new (empty) session
+                # Don't need st.rerun here, the app will rerender with the new empty history
+
+
+            # --- Display chat session buttons ---
+            session_titles = {session['session_id']: session.get('title', 'New Chat') for session in session_list}
+
+            # Prepare list for radio button, putting the current session first if necessary
+            display_sessions = []
+            if st.session_state.selected_session_id not in session_titles:
+                # Add current (new) session as "New Chat" if it doesn't exist in DB yet
+                 display_sessions.insert(0, {'session_id': st.session_state.selected_session_id, 'title': "New Chat"})
             
-            # --- !! NEW: Chat History UI !! ---
+            # Add existing sessions
+            for session in session_list:
+                if session['session_id'] != st.session_state.selected_session_id:
+                    display_sessions.append(session)
             
-            # Load default session if none selected
-            if not st.session_state.selected_session_id and session_list:
-                st.session_state.selected_session_id = session_list[0]['session_id']
-            elif not st.session_state.selected_session_id and not session_list:
-                 st.session_state.selected_session_id = f"session_{uuid.uuid4()}"
-                 st.session_state.chat_history = []
+            # This is complex, but the goal is to list sessions to the user.
             
-            # Load history for the first time if it's empty
-            if st.session_state.selected_session_id and not st.session_state.chat_history:
+            
+            # --- Correct Radio Button Logic ---
+            # Create a simple list of titles/IDs for the radio button
+            session_options = [(s['title'], s['session_id']) for s in session_list]
+            current_session_title = session_titles.get(st.session_state.selected_session_id, "New Chat")
+            
+            # Add current/new session if it's not in the list (i.e., it's a brand new chat)
+            if st.session_state.selected_session_id and st.session_state.selected_session_id not in [s['session_id'] for s in session_list]:
+                session_options.insert(0, (current_session_title, st.session_state.selected_session_id))
+
+
+            # Use a selectbox or radio based on options
+            if session_options:
+                selected_title = st.radio(
+                    "Select a conversation:",
+                    [title for title, _ in session_options],
+                    index=[title for title, _ in session_options].index(current_session_title),
+                    key="session_radio",
+                    label_visibility="collapsed"
+                )
+
+                selected_session_id_from_radio = [s_id for title, s_id in session_options if title == selected_title][0]
+                
+                # Check for session switch
+                if selected_session_id_from_radio != st.session_state.selected_session_id:
+                    st.session_state.selected_session_id = selected_session_id_from_radio
+                    st.session_state.chat_history = get_chat_history(st.session_state.user.id, selected_session_id_from_radio)
+                    st.rerun() # Rerun to update the main chat panel
+                
+            # Final check to load history if it hasn't been loaded yet (e.g., first log-in)
+            if not st.session_state.chat_history and st.session_state.selected_session_id:
                  st.session_state.chat_history = get_chat_history(
                      st.session_state.user.id, 
                      st.session_state.selected_session_id
                  )
-
-            # Display chat session buttons
-            for session in session_list:
-                session_id = session['session_id']
-                # Use a default title if the first message was empty/None
-                title = session.get('title', 'Chat') or "Chat"
-                
-                # Use a button for each session
-                if st.button(title, key=session_id, use_container_width=True):
-                    # On click, load this session
-                    st.session_state.selected_session_id = session_id
-                    st.session_state.chat_history = get_chat_history(st.session_state.user.id, session_id)
-                    st.rerun() # Rerun to update the main chat panel
 
 
     # --- 3. Main App Interface (If Workspace is Loaded) ---
@@ -736,8 +772,5 @@ else:
             run_retrieval_mode_ui()
     elif st.session_state.user:
         # User is logged in, but hasn't loaded a workspace
-        
-        # --- !! THE FIX IS HERE !! ---
-        # Changed `name` to `user_name`
         st.title(f"Welcome, {user_name}!")
         st.info("Please configure your API keys and workspace in the sidebar, then click 'Load Workspace' to begin.")
