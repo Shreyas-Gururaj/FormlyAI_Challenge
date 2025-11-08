@@ -103,6 +103,7 @@ _initial_keys = {
     "api_keys": None,  # Will be loaded from Supabase
     "user": None,  # Will store the Supabase user object
     "page": "login",
+    "rerun_pending": False,  # used to schedule safe reruns after actions
 }
 for k, v in _initial_keys.items():
     if k not in st.session_state:
@@ -151,6 +152,7 @@ def init_qdrant_client():
 # --- Helper utilities ---
 def clear_user_session_state():
     """Clear only user-specific session keys (keep app defaults intact)."""
+    # Keep base keys defined in _initial_keys, but remove others
     keys_to_keep = set(_initial_keys.keys())
     for key in list(st.session_state.keys()):
         if key not in keys_to_keep:
@@ -340,6 +342,7 @@ def build_dynamic_agent(enabled_tools_list: List[str]):
 
 
 # --- UI Mode: Retrieval ---
+
 
 def fetch_one_dict(db_conn, query: str, params: tuple) -> Optional[dict]:
     """
@@ -632,7 +635,14 @@ def run_chatbot_mode_ui():
 
 # --- Main App Logic ---
 
+
 def main():
+    # Safe rerun: if an earlier operation requested a rerun, perform it at the top of main
+    if st.session_state.get("rerun_pending", False):
+        # Clear the flag and request a single safe rerun
+        st.session_state["rerun_pending"] = False
+        st.rerun()
+
     # --- 1. Authentication (NEW: Pure Supabase) ---
     # This is now the main app router
     if "user" not in st.session_state or st.session_state.user is None:
@@ -657,7 +667,8 @@ def main():
                     user = sign_in_user(email, password)
                     if user:
                         st.session_state.user = user
-                        st.rerun()
+                        # Schedule a safe rerun for next loop instead of rerunning immediately
+                        st.session_state["rerun_pending"] = True
 
         with register_tab:
             with st.form("Register"):
@@ -682,9 +693,13 @@ def main():
                 try:
                     sign_out_user()
                 finally:
-                    # Clear *all* session state and rerun to return to login
+                    # Clear *all* session state and schedule a rerun to return to login
                     st.session_state.clear()
-                    st.rerun()
+                    # reinitialise minimal keys to avoid KeyError on next run
+                    for k, v in _initial_keys.items():
+                        st.session_state[k] = v
+                    st.session_state["rerun_pending"] = True
+                    return  # Avoid continuing the render after scheduling rerun
 
             st.markdown("---")
 
@@ -775,8 +790,9 @@ def main():
 
                             st.session_state.workspace_loaded = True
                             st.success("Workspace loaded successfully.")
-                            time.sleep(5)
-                            st.rerun()
+                            # schedule a safe rerun in the next main loop instead of rerunning now
+                            st.session_state["rerun_pending"] = True
+                            return
 
                         except Exception as e:
                             st.error(f"Failed to initialize services: {e}")
@@ -834,7 +850,9 @@ def main():
                     if selected_session_id_from_radio != st.session_state.selected_session_id:
                         st.session_state.selected_session_id = selected_session_id_from_radio
                         st.session_state.chat_history = get_chat_history(st.session_state.user.id, selected_session_id_from_radio)
-                        st.rerun()  # Rerun to update the main chat panel
+                        # schedule safe rerun to update the main chat panel
+                        st.session_state["rerun_pending"] = True
+                        return
 
                 # Final check to load history if it hasn't been loaded yet (e.g., first log-in)
                 if not st.session_state.chat_history and st.session_state.selected_session_id:
