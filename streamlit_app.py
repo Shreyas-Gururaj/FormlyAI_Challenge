@@ -775,7 +775,7 @@ def main():
 
                             st.session_state.workspace_loaded = True
                             st.success("Workspace loaded successfully.")
-                            time.sleep(0.5)
+                            time.sleep(5)
                             st.rerun()
 
                         except Exception as e:
