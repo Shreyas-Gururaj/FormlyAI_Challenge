@@ -343,7 +343,7 @@ def run_retrieval_mode_ui():
         db_conn = st.session_state.db_conn
         
         try:
-            # --- 1. Get the Query Document ---
+            # 1. Get the Query Document
             with st.spinner(f"Fetching query document: {k_number}..."):
                 query_doc = fetch_one_dict(
                     db_conn,
@@ -355,7 +355,7 @@ def run_retrieval_mode_ui():
                 st.error(f"Error: K-Number {k_number} not found in our database.")
                 return
 
-            # --- 2. Get the Seed Vector ---
+            # 2. Get the Seed Vector
             with st.spinner(f"Searching for seed vector..."):
                 query_vector_data, _ = qdrant_client.scroll(
                     collection_name=get_config("QDRANT_COLLECTION"),
@@ -377,7 +377,7 @@ def run_retrieval_mode_ui():
             query_vector = query_vector_data[0].vector
             st.success(f"Found seed vector for {k_number}. Finding similar devices...")
 
-            # --- 3. Use Qdrant's `recommend` feature
+            # 3. Use Qdrant's `recommend` feature
             with st.spinner("Finding recommendations..."):
                 recommendations = qdrant_client.recommend(
                     collection_name=get_config("QDRANT_COLLECTION"),
@@ -390,7 +390,7 @@ def run_retrieval_mode_ui():
                     )
                 )
 
-            # --- 4. De-duplicate the results ---
+            # 4. De-duplicate the results
             top_unique_hits = []
             seen_k_numbers = set()
             for hit in recommendations:
@@ -583,6 +583,8 @@ if st.session_state.user is None:
 
 # --- 2. Main Application (If Logged In) ---
 else:
+    # --- !! THE FIX IS HERE !! ---
+    # Moved this line to the top of the 'else' block
     user_name = st.session_state.user.user_metadata.get("full_name", "User")
     
     with st.sidebar:
@@ -734,5 +736,8 @@ else:
             run_retrieval_mode_ui()
     elif st.session_state.user:
         # User is logged in, but hasn't loaded a workspace
+        
+        # --- !! THE FIX IS HERE !! ---
+        # Changed `name` to `user_name`
         st.title(f"Welcome, {user_name}!")
         st.info("Please configure your API keys and workspace in the sidebar, then click 'Load Workspace' to begin.")
