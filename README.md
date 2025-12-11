@@ -6,25 +6,25 @@ This application demonstrates a "Tool-as-a-Service" (TaaS) architecture, where a
 
 ## 🎯 How to Demo (Direct POC Access)
 
-1. **Open the App:** Navigate to https://formlyaichallenge-ru8zvp74m2ln23tzybg5to.streamlit.app/
+### 1. Open the App: Navigate to https://formlyaichallenge-ru8zvp74m2ln23tzybg5to.streamlit.app/
 
-2. **Register/Login:**
+### 2. Register/Login:
 
 - Use the **"Register"** tab to create a new account (Email/Password).
 - Log in with your new credentials.
 
-3. **Configure API Keys (First Time Only):**
+### 3. Configure API Keys (First Time Only):**
 
 - Open the **"🔐 My API Keys"** expander in the sidebar.
 - Enter your keys for **Google (Gemini), Cohere, Tavily, and OpenWeatherMap**.
 - Click **"Save API Keys"**. Note: Keys are encrypted (Fernet) and stored securely in the Supabase database for your future sessions.
 
-4. **Launch Workspace:**
+### 4. Launch Workspace:
 
 - Select your **Mode** (Chatbot vs. Retrieval).
 - Click **"Load Workspace"**.
 
-5. **Test Queries:**
+### 5. Test Queries:
 
 - Chatbot: "Find devices similar to the CardioScribe ECG Monitor."
 - Retrieval: Enter ```K063152``` to see the split-screen comparison and justification.
@@ -51,7 +51,7 @@ This prioritizes regulatory equivalence over physical description.
 
 - **Cross-Encoder Reranking:** The top 25 results are passed to the **Cohere Rerank v3** model. This model reads the full query and document text to filter out "vector hallucinations" and re-orders the list based on true relevance. 
 
-### 2. 3. Evaluation Strategy
+### 2. Evaluation Strategy
 
 - **Golden Set:** Established a test set (```k_numbers_to_compare.txt```) of known devices and their predicates.
 
