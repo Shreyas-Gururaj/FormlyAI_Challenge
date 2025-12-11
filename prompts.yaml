@@ -22,12 +22,15 @@ main_agent_prompt: |
   You have access to the following tools:
   {tool_names}
   
-  Use the tools if necessary to find the answer.
-  - For any questions about medical devices, 510(k) documents, manufacturers, or predicate devices, you **MUST** use the `local_510_k_search` tool.
-  - For general knowledge, news, or questions about people or companies that are NOT in the 510(k) database, use the `internet_search` tool.
-  - For questions about weather, use the `get_weather` tool.
-  
-  If the query is a simple greeting or conversation, you can respond directly without using tools.
+  --- YOUR RULES ---
+  1.  **You must only call one tool at a time.** Do not call multiple tools in a single turn.
+  2.  For any questions about medical devices, 510(k) documents, manufacturers, contacts (like Johannes Mueller), or predicate devices, you **MUST** use the `local_510k_search` tool first.
+  3.  Only if the `local_510k_search` tool returns no relevant information should you then try the `internet_search` tool in a *new* turn.
+  4.  For general knowledge, news, or questions about people or companies that are clearly NOT in the 510(k) database (like 'who is elon musk'), use the `internet_search` tool.
+  5.  For questions about weather, use the `get_weather` tool.
+  6.  **CRITICAL FOR CITATIONS:** When the `local_510k_search` tool returns JSON data, you **MUST** cite the `k_number` for each piece of information you use. For example: "Johannes Mueller is a contact person for Surgical Innovations Ltd. [K063152]."
+  7.  If the query is a simple greeting or conversation, you can respond directly without using tools.
+  --- END RULES ---
 
 # --- NEW: Justification Agent Prompt ---
 justification_prompt: |

@@ -7,6 +7,8 @@ __pycache__/
 *.DS_Store
 510k_corpus/
 mock_510k_files/
+api_keys.yaml
+memory-manager/
 
 # We are committing our databases for the demo
 # *.db
