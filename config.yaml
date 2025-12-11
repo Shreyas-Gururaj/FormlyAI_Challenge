@@ -1,3 +1,21 @@
+# --- API Keys ---
+# These are your *personal* keys.
+# DO NOT add these to Streamlit Secrets. You will enter them in the app's UI.
+# You can add them here for local development.
+GOOGLE_API_KEY: "YOUR_API_KEY_GOES_HERE"
+COHERE_API_KEY: "YOUR_API_KEY_GOES_HERE"
+TAVILY_API_KEY: "YOUR_API_KEY_GOES_HERE"
+OWM_API_KEY: "YOUR_API_KEY_GOES_HERE"
+
+# --- System Secrets (THESE GO IN STREAMLIT SECRETS) ---
+# 1. Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+FERNET_KEY: "YOUR_SECRET_FERNET_KEY_GOES_HERE"
+
+# 2. Get from Supabase Project > Settings > API
+SUPABASE_URL: "https://your-project-id.supabase.co"
+SUPABASE_KEY: "your-public-anon-key-goes-here..."
+SUPABASE_SERVICE_KEY: "your-secret-service-role-key-goes-here..."
+
 # --- !! NEW: Prompts File Location !! ---
 PROMPTS_FILE: "prompts.yaml"
 
